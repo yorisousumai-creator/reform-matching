@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>案件管理 - ダッシュボード</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: sans-serif;
+      background-color: #f5f5f5;
+    }
+    .header {
+      background-color: #4caf50;
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header h1 {
+      font-size: 24px;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 20px auto;
+      padding: 0 20px;
+    }
+    .top-bar {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filters label {
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .filters select {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background-color: #4caf50;
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background-color: #43a047;
+    }
+    .btn-danger {
+      background-color: #f44336;
+      color: #fff;
+      font-size: 12px;
+      padding: 6px 12px;
+    }
+    .btn-danger:hover {
+      background-color: #d32f2f;
+    }
+    .cases-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 20px;
+    }
+    .case-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border-left: 5px solid #4caf50;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .case-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .case-card.priority-high {
+      border-left-color: #ff9800;
+    }
+    .case-card.priority-urgent {
+      border-left-color: #f44336;
+    }
+    .case-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .case-id {
+      font-size: 11px;
+      color: #999;
+      margin-bottom: 5px;
+    }
+    .case-customer {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .case-priority {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+    .priority-normal {
+      background-color: #e0e0e0;
+      color: #666;
+    }
+    .priority-high {
+      background-color: #ffe0b2;
+      color: #e65100;
+    }
+    .priority-urgent {
+      background-color: #ffcdd2;
+      color: #c62828;
+    }
+    .case-info {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.8;
+      margin-bottom: 10px;
+    }
+    .case-info strong {
+      color: #333;
+    }
+    .case-details {
+      background-color: #f9f9f9;
+      padding: 12px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+    }
+    .case-notes {
+      background-color: #fff3e0;
+      padding: 12px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-size: 13px;
+      border-left: 3px solid #ff9800;
+    }
+    .case-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
+      align-items: center;
+    }
+    .status-select {
+      flex: 1;
+      padding: 8px;
+      border: 2px solid #4caf50;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      background-color: #fff;
+    }
+    .status-select:focus {
+      outline: none;
+      border-color: #43a047;
+    }
+    .case-date {
+      font-size: 12px;
+      color: #999;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+    }
+    .loading {
+      text-align: center;
+      padding: 50px;
+      color: #999;
+    }
+    .empty {
+      text-align: center;
+      padding: 50px;
+      color: #999;
+      background: #fff;
+      border-radius: 8px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stat-number {
+      font-size: 32px;
+      font-weight: bold;
+      color: #4caf50;
+    }
+    .stat-label {
+      font-size: 14px;
+      color: #666;
+      margin-top: 5px;
+    }
+    @media (max-width: 768px) {
+      .cases-grid {
+        grid-template-columns: 1fr;
+      }
+      .top-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .filters {
+        flex-direction: column;
+      }
+      .filters select {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📋 案件管理ダッシュボード</h1>
+  </div>
+
+  <div class="container">
+    <!-- 統計カード -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-number" id="statTotal">0</div>
+        <div class="stat-label">総案件数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="statNew">0</div>
+        <div class="stat-label">新規</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="statProgress">0</div>
+        <div class="stat-label">対応中</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="statDone">0</div>
+        <div class="stat-label">完了</div>
+      </div>
+    </div>
+
+    <!-- フィルター -->
+    <div class="top-bar">
+      <div class="filters">
+        <label>ステータス：</label>
+        <select id="statusFilter">
+          <option value="all">すべて</option>
+          <option value="新規">新規</option>
+          <option value="確認中">確認中</option>
+          <option value="見積作成中">見積作成中</option>
+          <option value="提案済">提案済</option>
+          <option value="受注">受注</option>
+          <option value="施工中">施工中</option>
+          <option value="完了">完了</option>
+          <option value="不成立">不成立</option>
+        </select>
+        
+        <label>優先度：</label>
+        <select id="priorityFilter">
+          <option value="all">すべて</option>
+          <option value="至急">至急</option>
+          <option value="高">高</option>
+          <option value="通常">通常</option>
+        </select>
+      </div>
+      
+      <button onclick="loadCases()" class="btn btn-primary">
+        🔄 更新
+      </button>
+    </div>
+
+    <div id="loading" class="loading">読み込み中...</div>
+    <div id="cases" class="cases-grid"></div>
+    <div id="empty" class="empty" style="display: none;">
+      案件がありません
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    const loading = document.getElementById('loading');
+    const casesContainer = document.getElementById('cases');
+    const empty = document.getElementById('empty');
+    const statusFilter = document.getElementById('statusFilter');
+    const priorityFilter = document.getElementById('priorityFilter');
+    
+    // 統計を更新
+    function updateStats(data) {
+      document.getElementById('statTotal').textContent = data.length;
+      document.getElementById('statNew').textContent = data.filter(c => c.status === '新規').length;
+      document.getElementById('statProgress').textContent = data.filter(c => 
+        ['確認中', '見積作成中', '提案済', '受注', '施工中'].includes(c.status)
+      ).length;
+      document.getElementById('statDone').textContent = data.filter(c => c.status === '完了').length;
+    }
+    
+    // 案件を読み込み
+    window.loadCases = async function() {
+      loading.style.display = 'block';
+      casesContainer.style.display = 'none';
+      empty.style.display = 'none';
+      
+      let query = supabase
+        .from('inquiries')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      const status = statusFilter.value;
+      const priority = priorityFilter.value;
+      
+      if (status !== 'all') {
+        query = query.eq('status', status);
+      }
+      
+      if (priority !== 'all') {
+        query = query.eq('priority', priority);
+      }
+      
+      const { data, error } = await query;
+      
+      loading.style.display = 'none';
+      
+      if (error) {
+        console.error('エラー:', error);
+        alert('データの取得に失敗しました');
+        return;
+      }
+      
+      // 統計を更新（フィルター前の全データで）
+      const { data: allData } = await supabase.from('inquiries').select('*');
+      if (allData) updateStats(allData);
+      
+      if (data.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+      
+      casesContainer.style.display = 'grid';
+      casesContainer.innerHTML = data.map(c => createCaseCard(c)).join('');
+    };
+    
+    // 案件カードを作成
+    function createCaseCard(c) {
+      return `
+        <div class="case-card ${getPriorityClass(c.priority)}" data-id="${c.id}">
+          <div class="case-header">
+            <div>
+              <div class="case-id">ID: ${c.id.slice(0, 8)}</div>
+              <div class="case-customer">
+                ${c.customer_name}
+                <span class="case-priority ${getPriorityBadgeClass(c.priority)}">
+                  ${c.priority || '通常'}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="case-info">
+            <strong>📞</strong> ${c.customer_phone}<br>
+            ${c.customer_email ? `<strong>📧</strong> ${c.customer_email}<br>` : ''}
+            <strong>📍</strong> ${c.prefecture}${c.city}${c.address ? ' ' + c.address : ''}<br>
+            <strong>🔧</strong> ${c.reform_type}<br>
+            ${c.budget_range ? `<strong>💰</strong> ${c.budget_range}<br>` : ''}
+            ${c.desired_start_date ? `<strong>📅</strong> ${c.desired_start_date}<br>` : ''}
+          </div>
+          
+          ${c.details ? `<div class="case-details"><strong>詳細：</strong><br>${c.details}</div>` : ''}
+          ${c.contractor_notes ? `<div class="case-notes"><strong>⚠️ A社からの特記事項：</strong><br>${c.contractor_notes}</div>` : ''}
+          
+          <div class="case-actions">
+            <select class="status-select" onchange="updateStatus('${c.id}', this.value)">
+              <option value="新規" ${c.status === '新規' ? 'selected' : ''}>新規</option>
+              <option value="確認中" ${c.status === '確認中' ? 'selected' : ''}>確認中</option>
+              <option value="見積作成中" ${c.status === '見積作成中' ? 'selected' : ''}>見積作成中</option>
+              <option value="提案済" ${c.status === '提案済' ? 'selected' : ''}>提案済</option>
+              <option value="受注" ${c.status === '受注' ? 'selected' : ''}>受注</option>
+              <option value="施工中" ${c.status === '施工中' ? 'selected' : ''}>施工中</option>
+              <option value="完了" ${c.status === '完了' ? 'selected' : ''}>完了</option>
+              <option value="不成立" ${c.status === '不成立' ? 'selected' : ''}>不成立</option>
+            </select>
+            <button class="btn btn-danger" onclick="deleteCase('${c.id}', '${c.customer_name}')">
+              🗑️ 削除
+            </button>
+          </div>
+          
+          <div class="case-date">
+            登録: ${new Date(c.created_at).toLocaleString('ja-JP')}<br>
+            更新: ${new Date(c.updated_at).toLocaleString('ja-JP')}
+          </div>
+        </div>
+      `;
+    }
+    
+    // ステータスを更新
+    window.updateStatus = async function(id, newStatus) {
+      const { error } = await supabase
+        .from('inquiries')
+        .update({ status: newStatus })
+        .eq('id', id);
+      
+      if (error) {
+        console.error('エラー:', error);
+        alert('ステータスの更新に失敗しました');
+        loadCases();
+      } else {
+        // 成功したら統計だけ更新（リロードしない）
+        const { data: allData } = await supabase.from('inquiries').select('*');
+        if (allData) updateStats(allData);
+      }
+    };
+    
+    // 案件を削除
+    window.deleteCase = async function(id, customerName) {
+      if (!confirm(`本当に「${customerName}」様の案件を削除しますか？\n\nこの操作は取り消せません。`)) {
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('inquiries')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('エラー:', error);
+        alert('削除に失敗しました');
+      } else {
+        alert('削除しました');
+        loadCases();
+      }
+    };
+    
+    function getPriorityClass(priority) {
+      if (priority === '高') return 'priority-high';
+      if (priority === '至急') return 'priority-urgent';
+      return '';
+    }
+    
+    function getPriorityBadgeClass(priority) {
+      if (priority === '高') return 'priority-high';
+      if (priority === '至急') return 'priority-urgent';
+      return 'priority-normal';
+    }
+    
+    statusFilter.addEventListener('change', loadCases);
+    priorityFilter.addEventListener('change', loadCases);
+    
+    loadCases();
+  </script>
+</body>
+</html>
