@@ -136,18 +136,8 @@
       
       <div class="form-group">
         <label>リフォーム箇所 <span class="required">*</span></label>
-        <select name="reform_type" required>
-          <option value="">選択してください</option>
-          <option value="キッチン">キッチン</option>
-          <option value="風呂・浴室">風呂・浴室</option>
-          <option value="トイレ">トイレ</option>
-          <option value="洗面所">洗面所</option>
-          <option value="外壁">外壁</option>
-          <option value="屋根">屋根</option>
-          <option value="内装">内装</option>
-          <option value="全面リフォーム">全面リフォーム</option>
-          <option value="その他">その他</option>
-        </select>
+        <input type="text" name="reform_type" required placeholder="例：キッチン、浴室、外壁塗装、内装工事など">
+        <div class="note">※ 複数箇所の場合は「キッチン、浴室」のように入力してください</div>
       </div>
       
       <hr class="divider">
