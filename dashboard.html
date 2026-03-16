@@ -973,24 +973,61 @@
     }
     
     async function uploadImage(file) {
-      const fileName = `${currentCaseId}/${Date.now()}_${file.name}`;
+      // 拡張子を取得（小文字に変換）
+      const extension = file.name.split('.').pop().toLowerCase();
       
-      const { data, error } = await supabase.storage
-        .from('case-images')
-        .upload(fileName, file);
+      // 完全にランダムで安全なファイル名を生成（日本語を一切含まない）
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(2, 15);
+      const safeFileName = `${timestamp}_${randomStr}.${extension}`;
       
-      if (error) {
-        console.error('アップロードエラー:', error);
-        alert('画像のアップロードに失敗しました');
-        return;
+      const fullPath = `${currentCaseId}/${safeFileName}`;
+      
+      console.log('📤 アップロード開始');
+      console.log('📁 元のファイル名:', file.name);
+      console.log('💾 保存ファイル名:', safeFileName);
+      console.log('📍 フルパス:', fullPath);
+      console.log('📏 ファイルサイズ:', (file.size / 1024).toFixed(2), 'KB');
+      
+      try {
+        const { data, error } = await supabase.storage
+          .from('case-images')
+          .upload(fullPath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+        
+        if (error) throw error;
+        
+        console.log('✅ アップロード成功:', data);
+        
+        const { data: urlData } = supabase.storage
+          .from('case-images')
+          .getPublicUrl(fullPath);
+        
+        const publicUrl = urlData.publicUrl;
+        console.log('🔗 公開URL:', publicUrl);
+        
+        currentImageUrls.push(publicUrl);
+        displayUploadedImages();
+        
+      } catch (error) {
+        console.error('❌ アップロードエラー詳細:', error);
+        
+        let errorMessage = '画像のアップロードに失敗しました。\n\n';
+        
+        if (error.message.includes('Invalid key')) {
+          errorMessage += '⚠️ ファイル名に問題があります。\n開発者に連絡してください。';
+        } else if (error.message.includes('row-level security')) {
+          errorMessage += '⚠️ ストレージのアクセス権限がありません。\nRLSポリシーを確認してください。';
+        } else if (error.message.includes('not found')) {
+          errorMessage += '⚠️ バケット「case-images」が見つかりません。';
+        } else {
+          errorMessage += `エラー詳細: ${error.message}`;
+        }
+        
+        alert(errorMessage);
       }
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('case-images')
-        .getPublicUrl(fileName);
-      
-      currentImageUrls.push(publicUrl);
-      displayUploadedImages();
     }
     
     function displayUploadedImages() {
@@ -1008,6 +1045,8 @@
     };
     
     window.openEditModal = async function(id) {
+      console.log('🔍 編集モーダルを開く。案件ID:', id);
+      
       const { data, error } = await supabase
         .from('inquiries')
         .select('*')
@@ -1015,12 +1054,16 @@
         .single();
       
       if (error || !data) {
+        console.error('❌ データ取得エラー:', error);
         alert('データの取得に失敗しました');
         return;
       }
       
       currentCaseId = data.id;
       currentImageUrls = data.image_urls || [];
+      
+      console.log('✅ currentCaseId設定:', currentCaseId);
+      console.log('📷 既存画像数:', currentImageUrls.length);
       
       document.getElementById('editId').value = data.id;
       document.getElementById('editCustomerName').value = data.customer_name || '';
