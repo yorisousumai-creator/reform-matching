@@ -185,22 +185,23 @@
       
       // 最小限のデータで登録
       const data = {
-        customer_name: formData.get('customer_name'),
-        prefecture: formData.get('prefecture'),
-        city: formData.get('city'),
-        reform_type: formData.get('reform_type'),
-        details: formData.get('details') || null,
-        priority: formData.get('priority') || '通常',
-        
-        // 必須項目のデフォルト値
-        customer_phone: '',  // 後で追加
-        postal_code: '',     // 後で追加
-        
-        // システム項目
-        source: 'ミツモア',
-        status: '新規',
-        is_serviceable: true
-      };
+  customer_name: formData.get('customer_name'),
+  prefecture: formData.get('prefecture'),
+  city: formData.get('city'),
+  reform_type: formData.get('reform_type'),
+  details: formData.get('details') || null,
+  priority: formData.get('priority') || '通常',
+  
+  // 必須項目のデフォルト値を null に変更
+  customer_phone: null,   // ← 変更
+  customer_email: null,   // ← 変更
+  postal_code: null,      // ← 変更
+  
+  // システム項目
+  source: 'ミツモア',
+  status: '新規',
+  is_serviceable: true
+};
       
       try {
         const { error } = await supabase
