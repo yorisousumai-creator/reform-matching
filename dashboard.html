@@ -369,6 +369,87 @@
       margin-top: 5px;
     }
     
+    /* 一括操作バー */
+    .bulk-actions-bar {
+      background: #fff3e0;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: none;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+      border: 2px solid #ff9800;
+    }
+    .bulk-actions-bar.show {
+      display: flex;
+    }
+    .bulk-actions-info {
+      font-weight: bold;
+      color: #e65100;
+    }
+    .bulk-actions-buttons {
+      display: flex;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .btn-bulk-delete {
+      background-color: #f44336;
+      color: #fff;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .btn-bulk-delete:hover {
+      background-color: #d32f2f;
+    }
+    .btn-bulk-cancel {
+      background-color: #757575;
+      color: #fff;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .btn-bulk-cancel:hover {
+      background-color: #616161;
+    }
+    
+    /* チェックボックス */
+    .case-checkbox {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      z-index: 10;
+      accent-color: #4caf50;
+    }
+    .case-card.selected {
+      border: 2px solid #4caf50;
+      background-color: #e8f5e9;
+    }
+    
+    /* メモアイコン */
+    .has-memo-badge {
+      position: absolute;
+      top: 15px;
+      right: 50px;
+      background-color: #4caf50;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    
     /* モーダル */
     .modal {
       display: none;
@@ -587,6 +668,23 @@
       </button>
     </div>
 
+    <!-- 一括操作バー -->
+    <div id="bulkActionsBar" class="bulk-actions-bar">
+      <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #4caf50;">
+      <label for="selectAll" style="cursor: pointer; font-weight: bold;">全選択</label>
+      <div class="bulk-actions-info">
+        <span id="selectedCount">0</span>件選択中
+      </div>
+      <div class="bulk-actions-buttons">
+        <button class="btn-bulk-delete" onclick="bulkDelete()">
+          🗑️ 選択した案件を削除
+        </button>
+        <button class="btn-bulk-cancel" onclick="clearSelection()">
+          キャンセル
+        </button>
+      </div>
+    </div>
+
     <div id="loading" class="loading">読み込み中...</div>
     <div id="cases" class="cases-grid"></div>
     <div id="empty" class="empty" style="display: none;">
@@ -713,9 +811,26 @@
     const imageUploadArea = document.getElementById('imageUploadArea');
     const imageInput = document.getElementById('imageInput');
     const uploadedImagesDiv = document.getElementById('uploadedImages');
+    const bulkActionsBar = document.getElementById('bulkActionsBar');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    const selectAllCheckbox = document.getElementById('selectAll');
     
     let currentCaseId = null;
     let currentImageUrls = [];
+    let selectedCases = new Set(); // 選択された案件のIDを管理
+    
+    // ステータスの優先順位（ソート用）
+    const statusOrder = {
+      '新規': 1,
+      '確認中': 2,
+      '見積作成中': 3,
+      '提案済': 4,
+      '受注': 5,
+      '施工中': 6,
+      '完了': 7,
+      '不成立': 8,
+      'NG': 9
+    };
     
     // 統計を更新
     function updateStats(data) {
@@ -736,8 +851,7 @@
       
       let query = supabase
         .from('inquiries')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
       
       const status = statusFilter.value;
       const priority = priorityFilter.value;
@@ -768,8 +882,20 @@
         return;
       }
       
+      // ステータス順にソート（優先度 → 作成日時）
+      const sortedData = data.sort((a, b) => {
+        const statusDiff = (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
+        if (statusDiff !== 0) return statusDiff;
+        // 同じステータスなら新しい順
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+      
       casesContainer.style.display = 'grid';
-      casesContainer.innerHTML = data.map(c => createCaseCard(c)).join('');
+      casesContainer.innerHTML = sortedData.map(c => createCaseCard(c)).join('');
+      
+      // 選択状態をクリア
+      selectedCases.clear();
+      updateBulkActionsBar();
     };
     
     function getStatusClass(status) {
@@ -794,7 +920,13 @@
       const hasImages = c.image_urls && c.image_urls.length > 0;
       
       return `
-        <div class="case-card ${getStatusClass(c.status)} ${getPriorityClass(c.priority)}" data-id="${c.id}">
+        <div class="case-card ${getStatusClass(c.status)} ${getPriorityClass(c.priority)} ${selectedCases.has(c.id) ? 'selected' : ''}" data-id="${c.id}">
+          <!-- チェックボックス -->
+          <input type="checkbox" class="case-checkbox" ${selectedCases.has(c.id) ? 'checked' : ''} onchange="toggleCaseSelection('${c.id}')" onclick="event.stopPropagation()">
+          
+          <!-- メモありバッジ -->
+          ${hasMemo ? '<div class="has-memo-badge">📝 メモあり</div>' : ''}
+          
           <div class="case-header">
             <div>
               <div class="case-id">ID: ${c.id.slice(0, 8)}</div>
@@ -1180,6 +1312,106 @@
       }
     };
     
+    // チェックボックスのトグル
+    window.toggleCaseSelection = function(id) {
+      if (selectedCases.has(id)) {
+        selectedCases.delete(id);
+      } else {
+        selectedCases.add(id);
+      }
+      updateBulkActionsBar();
+      updateCaseCardSelection(id);
+    };
+    
+    // 全選択/全解除
+    window.toggleSelectAll = function() {
+      const allCheckboxes = document.querySelectorAll('.case-checkbox');
+      if (selectAllCheckbox.checked) {
+        // 全選択
+        allCheckboxes.forEach(cb => {
+          const id = cb.closest('.case-card').dataset.id;
+          selectedCases.add(id);
+          cb.checked = true;
+          cb.closest('.case-card').classList.add('selected');
+        });
+      } else {
+        // 全解除
+        selectedCases.clear();
+        allCheckboxes.forEach(cb => {
+          cb.checked = false;
+          cb.closest('.case-card').classList.remove('selected');
+        });
+      }
+      updateBulkActionsBar();
+    };
+    
+    // 一括操作バーの表示/非表示更新
+    function updateBulkActionsBar() {
+      const count = selectedCases.size;
+      selectedCountSpan.textContent = count;
+      
+      if (count > 0) {
+        bulkActionsBar.classList.add('show');
+      } else {
+        bulkActionsBar.classList.remove('show');
+        selectAllCheckbox.checked = false;
+      }
+    }
+    
+    // カード選択状態の更新
+    function updateCaseCardSelection(id) {
+      const card = document.querySelector(`[data-id="${id}"]`);
+      if (!card) return;
+      
+      if (selectedCases.has(id)) {
+        card.classList.add('selected');
+      } else {
+        card.classList.remove('selected');
+      }
+    }
+    
+    // 選択をクリア
+    window.clearSelection = function() {
+      selectedCases.clear();
+      document.querySelectorAll('.case-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.closest('.case-card').classList.remove('selected');
+      });
+      selectAllCheckbox.checked = false;
+      updateBulkActionsBar();
+    };
+    
+    // 一括削除
+    window.bulkDelete = async function() {
+      const count = selectedCases.size;
+      if (count === 0) {
+        alert('削除する案件を選択してください');
+        return;
+      }
+      
+      if (!confirm(`選択した${count}件の案件を削除しますか？\n\nこの操作は取り消せません。`)) {
+        return;
+      }
+      
+      const idsToDelete = Array.from(selectedCases);
+      
+      try {
+        const { error } = await supabase
+          .from('inquiries')
+          .delete()
+          .in('id', idsToDelete);
+        
+        if (error) throw error;
+        
+        alert(`${count}件の案件を削除しました`);
+        selectedCases.clear();
+        loadCases();
+      } catch (error) {
+        console.error('エラー:', error);
+        alert('削除に失敗しました: ' + error.message);
+      }
+    };
+    
     function getPriorityClass(priority) {
       if (priority === '高') return 'priority-high';
       if (priority === '至急') return 'priority-urgent';
@@ -1205,3 +1437,5 @@
   </script>
 </body>
 </html>
+
+
