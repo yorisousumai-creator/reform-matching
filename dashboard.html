@@ -963,8 +963,11 @@
         html += cases.map(c => createCaseCard(c)).join('');
       });
       
-      // 3. 新規案件（グループ化しない）
-      html += normalCases.map(c => createCaseCard(c)).join('');
+      // 3. 新規案件
+if (normalCases.length > 0) {
+  html += `<div class="section-header">📋 新規案件 <span class="section-count">${normalCases.length}件</span></div>`;
+  html += normalCases.map(c => createCaseCard(c)).join('');
+}
       
       casesContainer.style.display = 'grid';
       casesContainer.innerHTML = html;
