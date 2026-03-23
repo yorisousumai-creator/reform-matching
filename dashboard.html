@@ -450,6 +450,33 @@
       font-weight: bold;
     }
     
+    /* セクションヘッダー */
+    .section-header {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+      color: #fff;
+      padding: 15px 20px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-header:first-child {
+      margin-top: 0;
+    }
+    .section-count {
+      background-color: rgba(255, 255, 255, 0.3);
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      margin-left: auto;
+    }
+    
     /* モーダル */
     .modal {
       display: none;
@@ -882,16 +909,65 @@
         return;
       }
       
-      // ステータス順にソート（優先度 → 作成日時）
-      const sortedData = data.sort((a, b) => {
-        const statusDiff = (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
-        if (statusDiff !== 0) return statusDiff;
-        // 同じステータスなら新しい順
-        return new Date(b.created_at) - new Date(a.created_at);
+      // 案件をグループ分け
+      // 優先度1: メモあり（ステータス問わず）
+      const withMemo = data.filter(c => c.notes && c.notes.trim());
+      
+      // 優先度2: ステータス変更済み（メモなし）
+      const statusChanged = data.filter(c => 
+        c.status !== '新規' && (!c.notes || !c.notes.trim())
+      );
+      
+      // 優先度3: 新規案件（メモなし）→ グループ化しない
+      const normalCases = data.filter(c => 
+        c.status === '新規' && (!c.notes || !c.notes.trim())
+      );
+      
+      // 各グループ内でソート
+      // メモあり：更新日時順（新しい順）
+      withMemo.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+      
+      // ステータス変更済み：ステータスごとにグループ化
+      const byStatus = {};
+      statusChanged.forEach(c => {
+        if (!byStatus[c.status]) byStatus[c.status] = [];
+        byStatus[c.status].push(c);
       });
       
+      // 各ステータスグループ内で更新日時順
+      Object.values(byStatus).forEach(group => {
+        group.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+      });
+      
+      // 新規案件：作成日時順（新しい順）
+      normalCases.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
+      // HTMLを生成
+      let html = '';
+      
+      // 1. メモありグループ
+      if (withMemo.length > 0) {
+        html += `<div class="section-header">📝 メモあり <span class="section-count">${withMemo.length}件</span></div>`;
+        html += withMemo.map(c => createCaseCard(c)).join('');
+      }
+      
+      // 2. ステータス変更済みグループ（ステータスごと）
+      const sortedStatuses = Object.keys(byStatus).sort((a, b) => 
+        (statusOrder[a] || 99) - (statusOrder[b] || 99)
+      );
+      
+      sortedStatuses.forEach(status => {
+        const cases = byStatus[status];
+        const icon = getStatusIcon(status);
+        html += `<div class="section-header">${icon} ${status} <span class="section-count">${cases.length}件</span></div>`;
+        html += cases.map(c => createCaseCard(c)).join('');
+      });
+      
+      // 3. 新規案件（グループ化しない）
+      html += normalCases.map(c => createCaseCard(c)).join('');
+      
       casesContainer.style.display = 'grid';
-      casesContainer.innerHTML = sortedData.map(c => createCaseCard(c)).join('');
+      casesContainer.innerHTML = html;
       
       // 選択状態をクリア
       selectedCases.clear();
@@ -911,6 +987,21 @@
         'NG': 'status-ng'
       };
       return statusMap[status] || '';
+    }
+    
+    // ステータスに対応するアイコンを取得
+    function getStatusIcon(status) {
+      const iconMap = {
+        '確認中': '👀',
+        '見積作成中': '📊',
+        '提案済': '📝',
+        '受注': '✅',
+        '施工中': '🔨',
+        '完了': '✔️',
+        '不成立': '❌',
+        'NG': '✕'
+      };
+      return iconMap[status] || '📋';
     }
     
     function createCaseCard(c) {
@@ -1437,5 +1528,6 @@
   </script>
 </body>
 </html>
+
 
 
